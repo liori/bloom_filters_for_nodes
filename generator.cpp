@@ -26,16 +26,21 @@ int main(int argc, char** argv) {
             auto output = fopen(".dat", "ab");
             auto start_entry_id = entries * thread_id / thread_count;
             auto end_entry_id = entries * (thread_id + 1) / thread_count;
-            fseek(output, start_entry_id, SEEK_SET);
+            fseek(output, 2 * sizeof(id) * start_entry_id, SEEK_SET);
 
-            id piece_id;
-            for (uint64_t i = start_entry_id; i < end_entry_id; ++i) {
-                piece_id.data[0] = gen();
-                piece_id.data[1] = gen();
-                piece_id.data[2] = gen();
-                piece_id.data[3] = gen();
-                fwrite(node_ids[node_generator(gen)].data, 32, 1, output);
-                fwrite(piece_id.data, 32, 1, output);
+            id to_write[20480];
+
+            for (uint64_t i = 0; i < end_entry_id - start_entry_id;) {
+                auto step = std::min(size_t(10240), end_entry_id - start_entry_id - i);
+                i += step;
+                for (auto subint = 0; subint < step; ++subint) {
+                    to_write[2 * subint] = node_ids[node_generator(gen)];
+                    to_write[2 * subint + 1].data[0] = gen();
+                    to_write[2 * subint + 1].data[1] = gen();
+                    to_write[2 * subint + 1].data[2] = gen();
+                    to_write[2 * subint + 1].data[3] = gen();
+                }
+                fwrite(to_write, sizeof(id), 2 * step, output);
             }
             fclose(output);
         }, thread_id);
